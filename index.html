@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Number Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md fade-in">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-4">Phone Tracker</h1>
+        <p class="text-center text-gray-600 mb-6">Enter a phone number to start tracking</p>
+        <div class="flex flex-col gap-4">
+            <input 
+                type="tel" 
+                id="phone-input" 
+                placeholder="Enter phone number" 
+                class="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-300"
+            >
+            <button 
+                id="track-button" 
+                class="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold py-3 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300 pulse-animation"
+            >
+                Track Now
+            </button>
+        </div>
+        <p id="status" class="mt-4 text-center text-sm"></p>
+    </div>
+    <div id="map" class="w-full max-w-2xl h-96 mt-6 rounded-lg shadow-lg fade-in"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const phoneInput = document.getElementById('phone-input');
+        const trackButton = document.getElementById('track-button');
+        const status = document.getElementById('status');
+        let map, marker;
+
+        // Initialize Leaflet map with custom marker
+        function initMap(lat, lng) {
+            map = L.map('map').setView([lat, lng], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+            const customIcon = L.icon({
+                iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                iconSize: [38, 38],
+                iconAnchor: [19, 38],
+                popupAnchor: [0, -38]
+            });
+            marker = L.marker([lat, lng], { icon: customIcon }).addTo(map);
+        }
+
+        // Simulate tracking request
+        trackButton.addEventListener('click', async () => {
+            const phoneNumber = phoneInput.value.trim();
+            if (!phoneNumber) {
+                status.textContent = 'Please enter a phone number.';
+                status.className = 'mt-4 text-center text-sm text-red-600';
+                return;
+            }
+
+            status.textContent = 'Sending tracking request...';
+            status.className = 'mt-4 text-center text-sm text-blue-600';
+
+            try {
+                const response = await fetch('http://localhost:8080/track', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    status.textContent = `Location received for ${phoneNumber}!`;
+                    status.className = 'mt-4 text-center text-sm text-green-600';
+                    initMap(data.location.lat, data.location.lng);
+                    marker.bindPopup(`<b>Location for ${phoneNumber}</b>`).openPopup();
+                } else {
+                    status.textContent = data.message || 'Tracking failed. User did not consent.';
+                    status.className = 'mt-4 text-center text-sm text-red-600';
+                }
+            } catch (error) {
+                status.textContent = 'Error connecting to server.';
+                status.className = 'mt-4 text-center text-sm text-red-600';
+            }
+        });
+    </script>
+</body>
+</html>
